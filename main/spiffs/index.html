@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 File Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <h1>ESP32 SD File Manager</h1>
+
+    <div class="card">
+        <h2>Upload File</h2>
+        <input type="file" id="fileInput">
+        <button onclick="uploadFile()">Upload</button>
+        <div>Progress: <span id="progress">0%</span></div>
+    </div>
+
+    <div class="card">
+        <h2>File List</h2>
+        <button onclick="loadFiles()">Refresh</button>
+        <ul id="fileList"></ul>
+    </div>
+
+    <script>
+        async function loadFiles() {
+            const res = await fetch("/list");
+            const files = await res.json();
+
+            const list = document.getElementById("fileList");
+            list.innerHTML = "";
+
+            files.forEach(f => {
+                const li = document.createElement("li");
+
+                li.innerHTML = `
+    <span>${f.name}</span>
+
+    <button onclick="downloadFile('${f.name}')">Download</button>
+    <button onclick="deleteFile('${f.name}')">Delete</button>
+`;
+
+                list.appendChild(li);
+            });
+        }
+
+        function uploadFile() {
+            const fileInput = document.getElementById("fileInput");
+
+            if (fileInput.files.length === 0) {
+                alert("Select a file first");
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.open("POST", `/upload?name=${encodeURIComponent(file.name)}`, true);
+
+            // 👇 THEO DÕI % UPLOAD
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    console.log("Progress:", percent.toFixed(2) + "%");
+
+                    // nếu muốn hiển thị
+                    document.getElementById("progress").innerText =
+                        percent.toFixed(0) + "%";
+                }
+            };
+
+            xhr.onload = function () {
+                alert("Upload done");
+                loadFiles();
+            };
+
+            xhr.send(file);
+        }
+        function downloadFile(name) {
+            window.open(`/download?name=${encodeURIComponent(name)}`, "_blank");
+        }
+        async function deleteFile(name) {
+            if (!confirm("Delete " + name + "?")) return;
+
+            await fetch(`/delete?name=${name}`, {
+                method: "POST"
+            });
+
+            loadFiles();
+        }
+
+        // load when page opens
+        loadFiles();
+    </script>
+
+</body>
+
+</html>
